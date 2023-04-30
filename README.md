@@ -1,5 +1,5 @@
 # Running Zcash in Diablo
-Brandon Stride, Robert Zhang  | Blockchains & Cryptocurrencies Spring 23
+Brandon Stride, Robert Zhang, Elisee Djapa (please put accent on your name) | Blockchains & Cryptocurrencies Spring 23
 
 ## Problem statement
 We want to benchmark the Zcash cryptocurrency in a standardized way. The Diablo benchmarking application has been used already to test Ethereum, Solana, Diem, Quorum, Algorand, and Avalanche. Let's add Zcash to this list.
@@ -15,21 +15,21 @@ And the first Zcash paper here: http://zerocash-project.org/media/pdf/zerocash-o
 ## Go Zcash
 Diablo runs in Go. All of the previously-tested blockchains have a Go implementation or have Go SDKs (e.g. Solana is in Rust). Zcash is written in C++ and C. We need to call Zcash functions from Go.
 1. **hello world files**; We began with some ``hello world'' files.
-    ```c
-    /* hello.c */
-    #include <stdio.h>
+    ```c++
+    /* hello.cpp */
+    #include <iostream>
 
     int main() {
-        printf("Hello, world in C!\n");
+        std::cout << "Hello, world in C++!" << std::endl;
         return 0;
     }
     ```
 
     Run it:
     ```console
-    > gcc hello.c -o hello
+    > g++ hello.cpp -o hello
     > ./hello
-    Hello, world in C!
+    Hello, world in C++!
     ```
 
     And in Go:
@@ -54,5 +54,5 @@ Diablo runs in Go. All of the previously-tested blockchains have a Go implementa
 
 2. **SWIG minimal example**; Fill in details here on running SWIG with ``hello world'' files.
 
-
+    https://go.dev/doc/go1.2#cgo_and_cpp
 

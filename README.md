@@ -1,16 +1,15 @@
 # Running Zcash in Diablo
-Brandon Stride, Robert Zhang, Elisée Djapa  | Blockchains & Cryptocurrencies Spring 23
 
-## Problem statement
-We want to benchmark the Zcash cryptocurrency in a standardized way. The Diablo benchmarking application has been used already to test Ethereum, Solana, Diem, Quorum, Algorand, and Avalanche. Let's add Zcash to this list.
+**Authors:** Brandon Stride, Robert Zhang, Elisée Djapa<br>
+*Blockchains & Cryptocurrencies Spring 23*
 
-Read a little bit about Diablo here: https://diablobench.github.io/
+## Problem Statement
+We want to benchmark the Zcash cryptocurrency in a standardized way using the Diablo benchmarking application. Diablo has already been used to test Ethereum, Solana, Diem, Quorum, Algorand, and Avalanche. Our goal is to add Zcash to this list.
 
-And access the latest Diablo paper here: https://www.researchgate.net/publication/367219444_Diablo_A_Benchmark_Suite_for_Blockchains
-
-Check out the Zcash github here: https://github.com/zcash/zcash
-
-And the first Zcash paper here: http://zerocash-project.org/media/pdf/zerocash-oakland2014.pdf
+- Read more about Diablo [here](https://diablobench.github.io/)
+- Access the latest Diablo paper [here](https://www.researchgate.net/publication/367219444_Diablo_A_Benchmark_Suite_for_Blockchains)
+- Check out the Zcash GitHub repository [here](https://github.com/zcash/zcash)
+- Read the first Zcash paper [here](http://zerocash-project.org/media/pdf/zerocash-oakland2014.pdf)
 
 ## Go Zcash
 Diablo runs in Go. All of the previously-tested blockchains have a Go implementation or have Go SDKs (e.g. Solana is in Rust). Zcash is written in C++ and C. We need to call Zcash functions from Go.
@@ -52,7 +51,11 @@ Diablo runs in Go. All of the previously-tested blockchains have a Go implementa
 
     Both of these files run quite easily, but now we want to run `hello.c` from a Go file. According to swig.org, "Go does not support direct calling of functions written in C/C++. The cgo program may be used to generate wrappers to call C code from Go, but there is no convenient way to call C++ code. SWIG fills this gap".
 
+----
+---
+
 2. **SWIG minimal example**; Fill in details here on running SWIG with ``hello world'' files.
 
-    https://go.dev/doc/go1.2#cgo_and_cpp
+    For more details, refer to the following resource: [Go and C++](https://go.dev/doc/go1.2#cgo_and_cpp)
+
 

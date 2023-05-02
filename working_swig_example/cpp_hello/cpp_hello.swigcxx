@@ -1,0 +1,6 @@
+%module cpp_hello
+%{
+    #include "hello.hpp"
+%}
+
+%include "hello.hpp"

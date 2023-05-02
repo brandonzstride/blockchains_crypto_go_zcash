@@ -1,5 +1,5 @@
 # Running Zcash in Diablo
-Brandon Stride, Robert Zhang, Elisee Djapa (please put accent on your name) | Blockchains & Cryptocurrencies Spring 23
+Brandon Stride, Robert Zhang, Elisée Djapa  | Blockchains & Cryptocurrencies Spring 23
 
 ## Problem statement
 We want to benchmark the Zcash cryptocurrency in a standardized way. The Diablo benchmarking application has been used already to test Ethereum, Solana, Diem, Quorum, Algorand, and Avalanche. Let's add Zcash to this list.

@@ -58,4 +58,52 @@ Diablo runs in Go. All of the previously-tested blockchains have a Go implementa
 
     For more details, refer to the following resource: [Go and C++](https://go.dev/doc/go1.2#cgo_and_cpp)
 
+---
+---
+# Zcash Blockchain Implementation Overview
 
+This is  a high-level overview of the Zcash blockchain implementation, describing important components and their respective locations in the codebase. [Repo Link Here](https://github.com/zcash/zcash)
+
+## Consensus Rules
+
+The consensus rules define how nodes agree on the blockchain's state. Zcash's consensus rules are implemented in the `src/consensus/` directory. Key files include:
+
+- `params.h`: Parameters for consensus rules
+- `consensus.cpp`: Implements consensus-critical validation
+- `upgrades.cpp`: Handles network upgrades
+
+## Transaction and Block Validation
+
+The `src/` directory contains implementations for transaction and block validation:
+
+- `main.cpp`: Functions related to block validation and chain management
+- `txmempool.cpp`: Responsible for transaction memory pool management
+
+## zk-SNARKs and Zero-Knowledge Proofs
+
+The implementation of zk-SNARKs can be found in the `src/zcash/` directory. Notable files include:
+
+- `JoinSplit.hpp`: Defines the JoinSplit proof system
+- `Proof.hpp`: Represents a zk-SNARK proof
+- `NoteEncryption.hpp`: Implements the encryption scheme used for shielded transactions
+
+## Wallet
+
+The wallet code is located in the `src/wallet/` directory:
+
+- `wallet.cpp` and `wallet.h`: Define the core wallet functionality, including key generation, transaction creation, and transaction signing
+
+## P2P Network
+
+The peer-to-peer network code is in the `src/net.*` files, handling node connections, message exchanges, and block propagation.
+
+## RPC (Remote Procedure Call) Interface
+
+The RPC interface allows developers to interact with the Zcash node programmatically. The `src/rpc/` directory contains files for various RPC calls:
+
+- `blockchain.cpp`: Provides blockchain-related RPC calls
+- `wallet.cpp`: Provides wallet-related RPC calls
+
+## Mining
+
+The mining process in Zcash is implemented in the `src/miner.*` files, managing the creation of new blocks and the integration of transactions into those blocks.

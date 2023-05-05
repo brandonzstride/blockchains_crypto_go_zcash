@@ -1,0 +1,8 @@
+%module cpp_hello
+%{
+    #include "a/a.hpp"
+    #include "b/b.hpp"
+%}
+
+%include "a/a.hpp"
+%include "b/b.hpp"

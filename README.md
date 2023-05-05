@@ -62,7 +62,7 @@ Diablo runs in Go. All of the previously-tested blockchains have a Go implementa
 ---
 # Zcash Blockchain Implementation Overview
 
-This is  a high-level overview of the Zcash blockchain implementation, describing important components and their respective locations in the codebase. [Repo Link Here](https://github.com/zcash/zcash)
+This is  a high-level overview of the Zcash blockchain implementation, describing important components and their respective locations in the codebase. [Check out the ZCash Repo Link Here for more details](https://github.com/zcash/zcash)
 
 ## Consensus Rules
 

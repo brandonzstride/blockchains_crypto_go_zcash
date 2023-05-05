@@ -1,0 +1,8 @@
+(executable
+ (name cpcpp)
+ (modes
+  (byte exe))
+ (modules cpcpp)
+ (promote
+  (only cpcpp.exe)
+  (into ..)))

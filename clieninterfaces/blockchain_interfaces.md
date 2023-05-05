@@ -1,4 +1,28 @@
-In this markdown file, I paste the code from `ethereum_interface.go` and `solana_interface.go` that implement `blockchain_interface.go`. I have written comments in this code that should help us understand where the two are different and what we need to do to write the Zcash interface.
+## Required RPC calls
+
+Here are the RPC calls we will need:
+ - rpc.Client or equivalent for a node connection. The return is referred to as `node` in the following bullets.
+ - blockchain.Transaction{} (e.g. solana.Transaction{} ; ethtypes.Transaction{})
+ - JSON Unmarshal ( I really have no idea what this is, but it's needed for getting any errors from transactions on the above line)
+ - node.BlockByNumber(context.Background, blockNumber) or equivalent to find block by its number
+ - block.Signatures or block.Transactions based on the block returned by the above line
+ 	- block.Transactions would probably have hashes of transactions, and we use them as keys in a map to store all transactions
+ - node.RootSubscribe or node.SubscribeNewHead(context.Background(), eventCh). I'm not sure what it means to subscribe to a block
+	- eventCh is a channel with events (in Ethereum, is ethtypes.Header), but idk what that is
+ - rpc.New or ethtypes.Dial are functions that take an address of-sorts and connects to them.
+ - node.sendTransaction
+ - node.HeaderByNumber or node.GetCurrentBlockHeight or something like that
+ - node.Close to close connection
+
+
+Other info needed:
+How do we represent a transaction? Use signature? Use hash? Who knows?
+
+**We will probably get these from https://github.com/zcash/zcash/blob/master/src/rpc/**
+
+## Implementation of blockchain_interface.go
+
+In the rest of this markdown file, I paste the code from `ethereum_interface.go` and `solana_interface.go` that implement `blockchain_interface.go`. I have written comments in this code that should help us understand where the two are different and what we need to do to write the Zcash interface.
 
 Here is Ethereum.
 

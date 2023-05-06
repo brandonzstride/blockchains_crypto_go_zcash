@@ -1,41 +1,63 @@
 ## Required RPC calls
 
-Here are the RPC calls we will need:
- - rpc.Client or equivalent for a node connection. The return is referred to as `node` in the following bullets.
- - blockchain.Transaction{} (e.g. solana.Transaction{} ; ethtypes.Transaction{})
- - JSON Unmarshal ( I really have no idea what this is, but it's needed for getting any errors from transactions on the above line)
- - node.BlockByNumber(context.Background, blockNumber) or equivalent to find block by its number
- - block.Signatures or block.Transactions based on the block returned by the above line
- 	- block.Transactions would probably have hashes of transactions, and we use them as keys in a map to store all transactions
- - node.RootSubscribe or node.SubscribeNewHead(context.Background(), eventCh). I'm not sure what it means to subscribe to a block
-	- eventCh is a channel with events (in Ethereum, is ethtypes.Header), but idk what that is
- - rpc.New or ethtypes.Dial are functions that take an address of-sorts and connects to them.
- - node.sendTransaction
- - node.HeaderByNumber or node.GetCurrentBlockHeight or something like that
- - node.Close to close connection
-
 Assume that Solana imports begin with "github.com/gagliardetto/solana-go/", and `rpc` is "rpc/", `ws` is "rpc/ws/", and `solana` is the "solana-go/" directory itself. Also assume that `ethclient` is from import "github.com/ethereum/go-ethereum/ethclient" and `ethtypes` is the import "github.com/ethereum/go-ethereum/core/types".
+
+Click on the hyperlinks to see the GitHub code for each RPC call.
+
 * **node connection**. In Solana, this is type `rpc.Client` or `ws.Client`. In Ethereum, this is type `ethclient.Client`.
-  * Ethereum: connection is achieved via `c, err := ethclient.Dial(fmt.Sprintf("ws://%s", e.Nodes[id]))`, where `c` is of type `*ethclient.Client`, and `e.Nodes[id]` is string to identify a node. Code is [here](https://github.com/ethereum/go-ethereum/blob/604e215d1bb070dff98fb76aa965064c74e3633f/ethclient/ethclient.go#L40)
-  * Solana: connection is achieved via `conn := rpc.New(fmt.Sprintf("http://%s", node))` where `node` is a string. It then uses a socket and `ws.Connect` function. Code is [here](https://github.com/gagliardetto/solana-go/blob/290a21adc5d262d93baba0378ebf1dc9a5a1d21d/rpc/client.go#L48)
-* **Transaction{}**. In Solana, this is `t := solana.Transaction{}`, and in Ethereum, this is `t := ethtypes.Transaction{}`.
-  * In Ethereum, `t` has the attribute `UnmarshalJSON` (it is called as `t.UnmarshalJSON(txBytes)`). See code [here](https://github.com/ethereum/go-ethereum/blob/604e215d1bb070dff98fb76aa965064c74e3633f/core/types/transaction.go#L52) and [here](https://github.com/ethereum/go-ethereum/blob/604e215d1bb070dff98fb76aa965064c74e3633f/core/types/transaction_marshalling.go#L102)
-  * In Solana, it can be used as `json.Unmarshal(txBytes, &t)`. See code [here](https://github.com/gagliardetto/solana-go/blob/290a21adc5d262d93baba0378ebf1dc9a5a1d21d/transaction.go#L34)
-* In the following points, assume that `node` is from a node connection in the first bullet.
+  * [Ethereum](https://github.com/ethereum/go-ethereum/blob/604e215d1bb070dff98fb76aa965064c74e3633f/ethclient/ethclient.go#L40): connection is achieved via 
+  	```go
+	c, err := ethclient.Dial(fmt.Sprintf("ws://%s", e.Nodes[id]))
+	```
+	where `c` is of type `*ethclient.Client`, and `e.Nodes[id]` is string to identify a node.
+  * [Solana](https://github.com/gagliardetto/solana-go/blob/290a21adc5d262d93baba0378ebf1dc9a5a1d21d/rpc/client.go#L48): connection is achieved via
+  	```go
+	conn := rpc.New(fmt.Sprintf("http://%s", node))
+	```
+	where `node` is a string. It then uses a socket and `ws.Connect` function.
+* **Transaction{}**. REFORMAT THIS In [Solana](https://github.com/gagliardetto/solana-go/blob/290a21adc5d262d93baba0378ebf1dc9a5a1d21d/transaction.go#L34), this is
+	```go
+	t := solana.Transaction{}
+	```
+	and in [Ethereum](https://github.com/ethereum/go-ethereum/blob/604e215d1bb070dff98fb76aa965064c74e3633f/core/types/transaction.go#L52), this is 
+	```go
+	t := ethtypes.Transaction{}
+	```
+  * In Ethereum, `t` has the attribute `UnmarshalJSON` (it is called as `t.UnmarshalJSON(txBytes)`), and code is [here](https://github.com/ethereum/go-ethereum/blob/604e215d1bb070dff98fb76aa965064c74e3633f/core/types/transaction_marshalling.go#L102)
+  * In Solana, it can be used as `json.Unmarshal(txBytes, &t)`.
+* **In the following points, assume that `node` is from a node connection in the first bullet.**
 * **node.BlockByNumber**. Seems self explanatory for what it needs to do.
-  * Ethereum uses `block, err := node.BlockByNumber(context.Background(), index)`. [Here](https://github.com/ethereum/go-ethereum/blob/604e215d1bb070dff98fb76aa965064c74e3633f/ethclient/ethclient.go#L86)
-  * Solana doesn't use this, but it ignores the number and seems to get the latest block as type `*rpc.GetBlockResult` with `block, err = node.GetBlockWithOpts(..params here..)`. [Here](https://github.com/gagliardetto/solana-go/blob/290a21adc5d262d93baba0378ebf1dc9a5a1d21d/rpc/getBlock.go#L82)
+  * [Ethereum](https://github.com/ethereum/go-ethereum/blob/604e215d1bb070dff98fb76aa965064c74e3633f/ethclient/ethclient.go#L86):
+  	```go
+	block, err := node.BlockByNumber(context.Background(), index)
+	```
+  * Solana doesn't use this, but it ignores the number and seems to get the latest block as type `*rpc.GetBlockResult` with [this](https://github.com/gagliardetto/solana-go/blob/290a21adc5d262d93baba0378ebf1dc9a5a1d21d/rpc/getBlock.go#L82)
+  	```go
+	block, err = node.GetBlockWithOpts(..params here..)
+	```
 * **block.Transactions**. This can be of any form, but we need some way to get a list of transactions from a block.
-  * Ethereum: `for _, v := range block.Transactions()` and then uses `v.Hash().String()` to represent the transaction for the rest of the time. Code is [here](https://github.com/ethereum/go-ethereum/blob/604e215d1bb070dff98fb76aa965064c74e3633f/core/types/block.go#L316)
+  * [Ethereum](https://github.com/ethereum/go-ethereum/blob/604e215d1bb070dff98fb76aa965064c74e3633f/core/types/block.go#L316): `for _, v := range block.Transactions()` and then uses `v.Hash().String()` to represent the transaction for the rest of the time.
   * Solana: `for _, sig := range block.Signatures`
     * Cannot find code for Solana right now
 * **node.Subscribe**. We need to subscribe get notifications from a node. In this case, I think we hear when it has a new block.
-  * Ethereum: `sub, err := node.SubscribeNewHead(context.Background(), eventCh)` where `eventCh := make(chan *ethtypes.Header)`
-    * The `sub` is a subscription, and eventually we need to call `sub.Unsubscribe()`. See it [here](https://github.com/ethereum/go-ethereum/blob/604e215d1bb070dff98fb76aa965064c74e3633f/ethclient/ethclient.go#L322)
-  * Solana: `sub, err := node.RootSubscribe()` (specifically a node of type `ws.Client`).
-    * This also has `sub.Unsubscribe()`
+  * [Ethereum](https://github.com/ethereum/go-ethereum/blob/604e215d1bb070dff98fb76aa965064c74e3633f/ethclient/ethclient.go#L322):
+  	```go
+	eventCh := make(chan *ethtypes.Header)
+	sub, err := node.SubscribeNewHead(context.Background(), eventCh)
+	```
+    * The `sub` is a subscription, and eventually we need to call `sub.Unsubscribe()`.
+  * [Solana](https://github.com/gagliardetto/solana-go/blob/290a21adc5d262d93baba0378ebf1dc9a5a1d21d/rpc/ws/rootSubscribe.go#L21): specifically for a node of type `ws.Client`
+  	```go
+	sub, err := node.RootSubscribe()
+	```
+    * This also has `sub.Unsubscribe()`.
 * **node.SendTransaction**. Send a transaction over to a node
-  * Ethereum: `err := node.SendTransaction(context.Background(), &txSigned)` where `txSigned` is of type `ethtypes.Transaction` achieved via `txSigned := tx.(*ethtypes.Transaction)` where `tx` is of type `interface{}`.
+  * Ethereum: 
+  	```go
+	txSigned := tx.(*ethtypes.Transaction)
+	err := node.SendTransaction(context.Background(), &txSigned)
+	```
+	where `tx` is of type `interface{}` and `txSigned` is of type `ethtypes.Transaction`.
   * Solana: `node.SendTransactionWithOpts(..params here..)` where node has type `rpc.Client`.
 * **node.Close**. Close a connection with a node. Both Ethereum and Solana use `node.Close()`
 

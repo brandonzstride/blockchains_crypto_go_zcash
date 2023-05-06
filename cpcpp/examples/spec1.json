@@ -1,0 +1,29 @@
+{
+  "dir": "/",
+  "files": [
+    [
+      "file",
+      "a.cpp"
+    ],
+    [
+      "file",
+      "b.cpp"
+    ],
+    [
+      "dir",
+      {
+        "dir": "dir2",
+        "files": [
+          [
+            "file",
+            "c.cpp"
+          ],
+          [
+            "file",
+            "d.cpp"
+          ]
+        ]
+      }
+    ]
+  ]
+}

@@ -3,6 +3,9 @@
  (modes
   (byte exe))
  (modules cpcpp)
+ (libraries yojson core core_unix fileutils)
+ (preprocess
+  (pps ppx_yojson_conv ppx_deriving.show))
  (promote
   (only cpcpp.exe)
   (into ..)))

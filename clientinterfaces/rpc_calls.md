@@ -140,7 +140,12 @@ I can't find anything under the name "subscribe", but I thought I found some way
 
 Same for send transactions.
 
-Other info needed:
-How do we represent a transaction? Use signature? Use hash? Who knows?
+Suppose the C++ calls are working, and we can call from "https://github.com/zcash/zcash/blob/master/src/rpc/". Here is what we would use:
 
-**We will probably get these from https://github.com/zcash/zcash/blob/master/src/rpc/**
+[Node connection?](https://github.com/zcash/zcash/blob/5613d4ebae1bf072b01b5da678efeb933874bfb3/src/rpc/net.cpp#L171). Read the error string for docs (=> see getpeerinfo) and see [univalue](https://github.com/zcash/zcash/tree/49ffee3f20b972dc3aa75e422c67523251cf088b/src/univalue) for some additional info.
+
+[gettxout](https://github.com/zcash/zcash/blob/5613d4ebae1bf072b01b5da678efeb933874bfb3/src/rpc/blockchain.cpp#L864). Issue is that this seems to need the transaction to be on a block already, but we need to represent a transaction that is about to be submitted. [This](https://github.com/zcash/zcash/blob/5613d4ebae1bf072b01b5da678efeb933874bfb3/src/rpc/rawtransaction.cpp#L212) is txtoJSON. [Here](https://github.com/zcash/zcash/blob/5613d4ebae1bf072b01b5da678efeb933874bfb3/src/rpc/rawtransaction.cpp#L338) is getRawTransaction. And [this](https://github.com/zcash/zcash/blob/5613d4ebae1bf072b01b5da678efeb933874bfb3/src/rpc/rawtransaction.cpp#L671) creates a transaction from inputs and outputs.
+
+[sendTransaction](https://github.com/zcash/zcash/blob/5613d4ebae1bf072b01b5da678efeb933874bfb3/src/rpc/rawtransaction.cpp#L1229)
+
+[getBlock](https://github.com/zcash/zcash/blob/5613d4ebae1bf072b01b5da678efeb933874bfb3/src/rpc/blockchain.cpp#L706)

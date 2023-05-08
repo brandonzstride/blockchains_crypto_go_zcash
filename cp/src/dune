@@ -1,0 +1,11 @@
+(executable
+ (name cp)
+ (modes
+  (byte exe))
+ (modules cp)
+ (libraries yojson core core_unix fileutils)
+ (preprocess
+  (pps ppx_yojson_conv ppx_deriving.show))
+ (promote
+  (only cp.exe)
+  (into ..)))

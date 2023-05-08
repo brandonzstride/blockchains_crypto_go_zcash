@@ -25,6 +25,10 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gagliardetto/solana-go/rpc/ws"
 	"go.uber.org/zap"
+
+	"github.com/btcsuite/websocket" /** for websocket.Conn */
+	"github.com/btcsuite/btcd/btcjson"
+	zrpc "https://github.com/arithmetric/zcashrpcclient/"
 )
 
 /** Here are the Ethereum imports, for example:
@@ -64,15 +68,69 @@ type GenericBlock struct {
 }
 */
 
+
+/**
+btcjson/chainsvrresults.go
+
+// TxRawResult models the data from the getrawtransaction command.
+type TxRawResult struct {
+	Hex           string `json:"hex"`
+	Txid          string `json:"txid"`
+	Hash          string `json:"hash,omitempty"`
+	Size          int32  `json:"size,omitempty"`
+	Vsize         int32  `json:"vsize,omitempty"`
+	Weight        int32  `json:"weight,omitempty"`
+	Version       uint32 `json:"version"`
+	LockTime      uint32 `json:"locktime"`
+	Vin           []Vin  `json:"vin"`
+	Vout          []Vout `json:"vout"`
+	BlockHash     string `json:"blockhash,omitempty"`
+	Confirmations uint64 `json:"confirmations,omitempty"`
+	Time          int64  `json:"time,omitempty"`
+	Blocktime     int64  `json:"blocktime,omitempty"`
+}
+
+// GetBlockVerboseResult models the data from the getblock command when the
+// verbose flag is set to 1.  When the verbose flag is set to 0, getblock returns a
+// hex-encoded string. When the verbose flag is set to 1, getblock returns an object
+// whose tx field is an array of transaction hashes. When the verbose flag is set to 2,
+// getblock returns an object whose tx field is an array of raw transactions.
+// Use GetBlockVerboseTxResult to unmarshal data received from passing verbose=2 to getblock.
+type GetBlockVerboseResult struct {
+	Hash          string        `json:"hash"`
+	Confirmations int64         `json:"confirmations"`
+	StrippedSize  int32         `json:"strippedsize"`
+	Size          int32         `json:"size"`
+	Weight        int32         `json:"weight"`
+	Height        int64         `json:"height"`
+	Version       int32         `json:"version"`
+	VersionHex    string        `json:"versionHex"`
+	MerkleRoot    string        `json:"merkleroot"`
+	Tx            []string      `json:"tx,omitempty"`
+	RawTx         []TxRawResult `json:"rawtx,omitempty"` // Note: this field is always empty when verbose != 2.
+	Time          int64         `json:"time"`
+	Nonce         uint32        `json:"nonce"`
+	Bits          string        `json:"bits"`
+	Difficulty    float64       `json:"difficulty"`
+	PreviousHash  string        `json:"previousblockhash"`
+	NextHash      string        `json:"nextblockhash,omitempty"`
+}
+
+*/
+
+/** TODO: this needs to be integrated with zrpc somehow */
+type zcashClient struct {
+	wsconn websocket.Conn
+}
+
+type txinfo map[string][]time.Time /** string is key because btcjson.TxRawResult has Hash field of type string */
+
 type ZcashInterface struct {
-	/** Possible implementation here instead of Connections
-	PrimaryConnection *rpc.Client /** Ethereum uses *ethclient.Client
-	SecondaryConnections []*rpc.Client
-	*/
-	Connections      []*rpc.Client // Active connections to a blockchain node for information TODO: get this right
-	NextConnection   uint64
+	PrimaryConnection *zcashClient
+	SecondaryConnections []*zcashClient
+	IsBlockSeen		 map[string]bool // key is block hash
 	SubscribeDone    chan bool              // Event channel that will unsub from events
-	TransactionInfo  map[string][]time.Time // Transaction information TODO: make work with zcash. Type may need to change
+	TransactionInfo  txinfo // Transaction information // keep key as a string to stay universal
 	bigLock          sync.Mutex
 	HandlersStarted  bool         // Have the handlers been initiated?
 	StartTime        time.Time    // Start time of the benchmark
@@ -82,22 +140,15 @@ type ZcashInterface struct {
 	GenericInterface
 }
 
-// TODO: check where each of these objects point and make sure this works. See Solana
-func (z *ZcashInterface) ActiveConn() *rpc.Client {
-	i := atomic.AddUint64(&z.NextConnection, 1)
-	client := s.Connections[i%uint64(len(z.Connections))]
-	return client
-}
-
 func NewZcashInterface() *ZcashInterface {
 	return &ZcashInterface{logger: zap.L().Named("ZcashInterface")}
 }
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
 func (z *ZcashInterface) Init(chainConfig *configs.ChainConfig) {
-	z.logger.Debug("Init")
+	z.logger.Debug("Init Zcash interface")
 	z.Nodes = chainConfig.Nodes
-	z.TransactionInfo = make(map[string][]time.Time, 0) // TODO: see: TransactionInfo above
+	z.TransactionInfo = make(txinfo, 0) /** txinfo is alias right now, so maybe this won't work? */
 	z.SubscribeDone = make(chan bool)
 	z.HandlersStarted = false
 	z.NumTxDone = 0
@@ -180,7 +231,7 @@ func (z *ZcashInterface) Cleanup() results.Results {
 	}
 }
 
-/** This is currently unchanged from Solana and Ethereum */
+/** Ticker starts, and this fills z.Throughputs with the number of transactions that succeeded between each tick */
 func (z *ZcashInterface) throughputSeconds() {
 	s.ThroughputTicker = time.NewTicker(time.Duration(z.Window) * time.Second)
 	seconds := float64(0)
@@ -195,10 +246,9 @@ func (z *ZcashInterface) throughputSeconds() {
 func (z *ZcashInterface) Start() {
 	z.logger.Debug("Start")
 	z.StartTime = time.Now()
-	go z.throughputSeconds()
+	go z.throughputSeconds() /** start goroutine on ticker */
 }
 
-/** TODO: update transactions to work with Zcash. Only the two commented lines need to change. */
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
 func (z *ZcashInterface) ParseWorkload(workload workloadgenerators.WorkerThreadWorkload) ([][]interface{}, error) {
 	z.logger.Debug("ParseWorkload")
@@ -207,14 +257,12 @@ func (z *ZcashInterface) ParseWorkload(workload workloadgenerators.WorkerThreadW
 	for _, v := range workload {
 		intervalTxs := make([]interface{}, 0)
 		for _, txBytes := range v {
-			/** Change the following two lines */
-			t := solana.Transaction{}          /** Need to get zcash transaction here */            /** t := ethtypes.Transaction{} */
-			err := json.Unmarshal(txBytes, &t) /** Need to make this work with Zcash transaction */ /** err := t.UnmarshalJSON(txBytes) */
-			/** May want to check core/configs/types.go for UnmarshalJSON */
+			var t btcjson.TxRawResult /** this custom for Zcash */
+			/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
+			t, err := z.PrimaryConnection.DecodeRawTransaction(txbytes) /** this custom for Zcash */
 			if err != nil {
 				return nil, err
 			}
-
 			intervalTxs = append(intervalTxs, &t)
 		}
 		parsedWorkload = append(parsedWorkload, intervalTxs)
@@ -225,117 +273,115 @@ func (z *ZcashInterface) ParseWorkload(workload workloadgenerators.WorkerThreadW
 	return parsedWorkload, nil
 }
 
-/** I think Zcash has a GetBlockByNumber function, so we could use that like Ethereum */
-// parseBlocksForTransactions parses the the given block number for the transactions
-func (z *ZcashInterface) parseBlocksForTransactions(slot uint64) {
-	z.logger.Debug("parseBlocksForTransactions", zap.Uint64("slot", slot))
-
-	/** TODO: update this based on way connections are stored */
-	/** interface variable is left as `s` because it is unchanged from Solana */
-	var block *rpc.GetBlockResult /* TODO */
-	var err error
-	for attempt := 0; attempt < 100; attempt++ {
-		includeRewards := false
-		block, err = s.ActiveConn().rpcClient.GetBlockWithOpts(
-			context.Background(),
-			slot,
-			&rpc.GetBlockOpts{
-				TransactionDetails: rpc.TransactionDetailsSignatures,
-				Rewards:            &includeRewards,
-				Commitment:         rpc.CommitmentFinalized,
-			})
-
-		if err != nil {
-			time.Sleep(50 * time.Millisecond)
-			continue
-		}
-		if block == nil {
-			time.Sleep(50 * time.Millisecond)
-			continue
-		}
-		break
+// parseBlockForTransactions parses the given block for the transactions
+func (z *ZcashInterface) parseBlockForTransactions(block btcjson.GetBlockVerboseTxResult) {
+	if z.IsBlockSeen[block.Hash] {
+		return 
 	}
 
-	/** For the above code, Ethereum just calles the primary connection's blockbynumber function, as in the following line */
-	/** block, err := e.PrimaryNode.BlockByNumber(context.Background(), blockNumber) */
+	/** Does this get set to true whenever ANY node in the Diablo network sees the block? Or is this map unique for each specific node */
+	/** It's probably the latter because this code seems like it gets run from a secondary, which is one(?) node */
+	z.IsBlockSeen[block.Hash] = true
 
 	tNow := time.Now()
 	var tAdd uint64
 
 	z.bigLock.Lock()
 
-	/** TODO based on transaction info */
-	for _, sig := range block.Signatures {
-		if info, ok := s.TransactionInfo[sig]; ok && len(info) == 1 {
-			s.TransactionInfo[sig] = append(info, tNow)
+	for _, v := range block.Tx {
+		tHash := v.Hash()
+		if _, ok := z.TransactionInfo[tHash]; ok {
+			z.TransactionInfo[tHash] = append(z.TransactionInfo[tHash], tNow)
 			tAdd++
 		}
 	}
-
-	/** Here is the Ethereum way to do the above */
-	/**
-	for _, v := range block.Transactions() {
-		tHash := v.Hash().String()
-		if _, ok := e.TransactionInfo[tHash]; ok {
-			e.TransactionInfo[tHash] = append(e.TransactionInfo[tHash], tNow)
-			tAdd++
-		}
-	}
-	*/
 
 	z.bigLock.Unlock()
 
-	atomic.AddUint64(&z.NumTxDone, tAdd)
+	atomic.AddUint64(&z.NumTxDone, tAdd) /** why not add before the unlock */
 	z.logger.Debug("Stats", zap.Uint64("sent", atomic.LoadUint64(&z.NumTxSent)), zap.Uint64("done", atomic.LoadUint64(&z.NumTxDone)))
 }
 
-/** This implementation will depend heavily on the returned subscription type */
-/** It seems like this will call parseBlocksForTransactions on the incoming information from the subscription */
+// parseBlocksForTransactions parses the most recent block for transactions
+func (z *ZcashInterface) parseBestBlockForTransactions() {
+	z.logger.Debug("parseBestBlockForTransactions", zap.Uint64("slot", slot))
+
+	/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
+	hash, err := z.primaryConnection.GetBestBlockHash()
+	
+	if err != nil {
+		z.logger.Warn(err.Error())
+		return
+	}
+
+	/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
+	block, err := z.primaryConnection.GetBlockVerboseTx(hash) /** models getblock when verbose = 2, so this contains all transations */
+
+	if err != nil {
+		z.logger.Warn(err.Error())
+		return
+	}
+
+	z.parseBlockForTransactions(block)
+}
+
 // EventHandler subscribes to the blocks and handles the incoming information about the transactions
 func (z *ZcashInterface) EventHandler() {
 	z.logger.Debug("EventHandler")
-	sub, err := z.ActiveConn().wsClient.RootSubscribe() /** TODO: Update for Zcash client connection */
-	if err != nil {
-		s.logger.Warn("RootSubscribe", zap.Error(err))
-		return
-	}
-	defer sub.Unsubscribe()
-	go func() {
-		for range s.SubscribeDone {
-			sub.Unsubscribe()
-			return
-		}
-	}()
 
-	var currentSlot uint64 = 0
-	for {
-		got, err := sub.Recv()
-		if err != nil {
-			s.logger.Warn("RootResult", zap.Error(err))
+	/** This may be slow because we have to check if the block has been seen each time, */
+	/** but we have no `subscribe` function, so this is the best we can do */
+	/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
+	futureBlock := z.primaryConnection.getBestBlockVerboseTxAsync()
+
+	for { /** while true, read from channels */
+		select {
+		case <- z.SubscribeDone: /** Cleanup called <=> time to unsubscribe */
+			/** unsubscribe here i.e. stop getting notifications from node via a channel */
 			return
+		case response <- futureBlock:
+			block, err := response.Receive()
+			if err != nil {
+				Z.logger.Warn(err.Error())
+				return
+			}
+			z.parseBlockForTransactions(block)
+			/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
+			futureBlock = z.primaryConnection.getBestBlockVerboseTxAsync() /* ask for another block */
+		case err := sub.Err():
+			z.logger.Warn(err.Error())
+			return /** maybe don't return on an error? */
 		}
-		if got == nil {
-			s.logger.Warn("Empty root")
-			return
-		}
-		if currentSlot == 0 {
-			s.logger.Debug("First slot", zap.Uint64("got", uint64(*got)))
-		} else if uint64(*got) <= currentSlot {
-			s.logger.Debug("Slot skipped", zap.Uint64("got", uint64(*got)), zap.Uint64("current", currentSlot))
-			continue
-		} else if uint64(*got) > currentSlot+1 {
-			s.logger.Fatal("Missing slot update", zap.Uint64("got", uint64(*got)), zap.Uint64("current", currentSlot))
-		}
-		currentSlot = uint64(*got)
-		// Got a head
-		go s.parseBlocksForTransactions(uint64(*got))
 	}
 }
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
-func (s *SolanaInterface) ConnectOne(id int) error {
-	s.logger.Debug("ConnectOne")
-	return errors.New("do not use")
+func (z *ZcashInterface) ConnectOne(id int) error {
+	/** id is the index in the nodes list. It's not actually an 'identification' */
+
+	// If our ID is greater than the nodes we know, there's a problem!
+	if id >= len(z.Nodes) {
+		return errors.New("invalid client ID")
+	}
+
+	// Connect to the node
+	conn, err := zrpc.Dial(connectionConfig) /** TODO: fill this! */
+
+	// c, err := ethclient.Dial(fmt.Sprintf("ws://%s", e.Nodes[id]))
+
+	// // If there's an error, raise it.
+	// if err != nil {
+	// 	return err
+	// }
+
+	// e.PrimaryNode = c
+
+	// if !e.HandlersStarted {
+	// 	go e.EventHandler()
+	// 	e.HandlersStarted = true
+	// }
+
+	// return nil
 }
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */

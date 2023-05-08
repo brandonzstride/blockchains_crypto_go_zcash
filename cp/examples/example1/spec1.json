@@ -1,0 +1,18 @@
+{
+  "source": "examples/example1/cpp_proj",
+  "target": "examples/example1/cpp_proj_copy",
+  "worklist": {
+    "dir": "/",
+    "files": [
+      "a.cpp",
+      "b.cpp",
+      {
+        "dir": "subdir",
+        "files": [
+          "c.cpp",
+          "d.cpp"
+        ]
+      }
+    ]
+  }
+}

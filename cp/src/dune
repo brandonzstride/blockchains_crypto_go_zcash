@@ -1,11 +1,11 @@
 (executable
- (name cpcpp)
+ (name cp)
  (modes
   (byte exe))
- (modules cpcpp)
+ (modules cp)
  (libraries yojson core core_unix fileutils)
  (preprocess
   (pps ppx_yojson_conv ppx_deriving.show))
  (promote
-  (only cpcpp.exe)
+  (only cp.exe)
   (into ..)))

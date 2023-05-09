@@ -1,20 +1,29 @@
 open Core
 
-(* Type definitions *)
-type file_or_dir = File of string | Dir of directory
+(* type definitions *)
+type file_or_dir = File of string | IFile of string | Dir of directory
 and directory = { dir : string; files : file_or_dir list }
 
-and spec = { source : string; target : string; worklist : directory }
+and spec = {
+  source : string;
+  target : string;
+  swigcxx : string;
+  worklist : directory;
+}
 [@@deriving yojson]
 
-(* Mold raw Yojson input into format acceptable to be converted to our OCaml types
+(* mold raw Yojson input into format acceptable to be converted to our OCaml types
    k: last seen key of a record entry
    yojson: input Yojson object *)
 let rec mold ?(k = "") (yojson : Yojson.Safe.t) : Yojson.Safe.t =
   let open String in
   match yojson with
   | `List lst -> `List (List.map lst ~f:(fun x -> mold ~k x))
-  | `String _ as x when k = "files" -> `List (`String "File" :: [ x ])
+  | `String s when k = "files" ->
+      if Char.(s.[0] = '#') then
+        `List
+          [ `String "IFile"; `String (Stdlib.String.sub s 1 (length s - 1)) ]
+      else `List [ `String "File"; yojson ]
   | `Assoc lst when k = "files" ->
       `List
         (`String "Dir"
@@ -22,19 +31,24 @@ let rec mold ?(k = "") (yojson : Yojson.Safe.t) : Yojson.Safe.t =
   | `Assoc lst -> `Assoc (List.map lst ~f:(fun (k, v) -> (k, mold ~k v)))
   | _ -> yojson
 
-(* Override the auto-generated Yojson to spec function *)
+(* override the auto-generated Yojson to spec function *)
 let spec_of_yojson x = spec_of_yojson (mold x)
 
-(* Process the JSON specification and perform the file copying operation *)
-let rec copy_files_from_spec dir parent_dir target =
+(* process the JSON specification and perform the file copying operation *)
+let rec copy_files_from_spec dir parent_dir target incl =
   let cur_dir = Filename.concat parent_dir dir.dir in
-  List.iter dir.files ~f:(function
+  List.fold ~init:incl dir.files ~f:(fun acc -> function
     | File file ->
         let source = Filename.concat cur_dir file in
-        FileUtil.cp [ source ] target
-    | Dir worklist -> copy_files_from_spec worklist cur_dir target)
+        FileUtil.cp [ source ] target;
+        acc
+    | IFile file ->
+        let source = Filename.concat cur_dir file in
+        FileUtil.cp [ source ] target;
+        file :: acc
+    | Dir worklist -> copy_files_from_spec worklist cur_dir target acc)
 
-(* Main program Logic*)
+(* main program Logic*)
 let () =
   let spec_file = ref "" in
   Arg.parse
@@ -52,5 +66,10 @@ let () =
   let source = spec_obj.source in
   let target = spec_obj.target in
   Core_unix.mkdir_p target;
+  let swigcxx_file_path = spec_obj.swigcxx in
   let worklist = spec_obj.worklist in
-  copy_files_from_spec worklist source target
+
+  let to_include = copy_files_from_spec worklist source target [] in
+  (* only generate .swigcxx only if its file path has been specified *)
+  if String.(swigcxx_file_path <> "") then
+    Swigcxx.gen swigcxx_file_path to_include

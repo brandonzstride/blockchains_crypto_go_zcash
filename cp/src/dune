@@ -2,12 +2,10 @@
  (name cp)
  (modes
   (byte exe))
- (modules cp)
+ (modules cp swigcxx)
  (libraries yojson core core_unix fileutils)
- ; (libraries yojson core fileutils)
-
  (preprocess
-  (pps ppx_yojson_conv ppx_deriving.show))
+  (pps ppx_yojson_conv))
  (promote
   (only cp.exe)
   (into ..)))

@@ -26,9 +26,10 @@ import (
 	"github.com/gagliardetto/solana-go/rpc/ws"
 	"go.uber.org/zap"
 
-	"github.com/btcsuite/websocket" /** for websocket.Conn */
-	"github.com/btcsuite/btcd/btcjson"
 	zrpc "https://github.com/arithmetric/zcashrpcclient/"
+
+	"github.com/btcsuite/btcd/btcjson"
+	"github.com/btcsuite/websocket" /** for websocket.Conn */
 )
 
 /** Here are the Ethereum imports, for example:
@@ -67,7 +68,6 @@ type GenericBlock struct {
 	TransactionHashes []string // The hash of each transaction included in the block
 }
 */
-
 
 /**
 btcjson/chainsvrresults.go
@@ -126,17 +126,17 @@ type zcashClient struct {
 type txinfo map[string][]time.Time /** string is key because btcjson.TxRawResult has Hash field of type string */
 
 type ZcashInterface struct {
-	PrimaryConnection *zcashClient
+	PrimaryConnection    *zcashClient
 	SecondaryConnections []*zcashClient
-	IsBlockSeen		 map[string]bool // key is block hash
-	SubscribeDone    chan bool              // Event channel that will unsub from events
-	TransactionInfo  txinfo // Transaction information // keep key as a string to stay universal
-	bigLock          sync.Mutex
-	HandlersStarted  bool         // Have the handlers been initiated?
-	StartTime        time.Time    // Start time of the benchmark
-	ThroughputTicker *time.Ticker // Ticker for throughput (1s)
-	Throughputs      []float64    // Throughput over time with 1 second intervals
-	logger           *zap.Logger
+	IsBlockSeen          map[string]bool // key is block hash
+	SubscribeDone        chan bool       // Event channel that will unsub from events
+	TransactionInfo      txinfo          // Transaction information // keep key as a string to stay universal
+	bigLock              sync.Mutex
+	HandlersStarted      bool         // Have the handlers been initiated?
+	StartTime            time.Time    // Start time of the benchmark
+	ThroughputTicker     *time.Ticker // Ticker for throughput (1s)
+	Throughputs          []float64    // Throughput over time with 1 second intervals
+	logger               *zap.Logger
 	GenericInterface
 }
 
@@ -276,7 +276,7 @@ func (z *ZcashInterface) ParseWorkload(workload workloadgenerators.WorkerThreadW
 // parseBlockForTransactions parses the given block for the transactions
 func (z *ZcashInterface) parseBlockForTransactions(block btcjson.GetBlockVerboseTxResult) {
 	if z.IsBlockSeen[block.Hash] {
-		return 
+		return
 	}
 
 	/** Does this get set to true whenever ANY node in the Diablo network sees the block? Or is this map unique for each specific node */
@@ -307,15 +307,15 @@ func (z *ZcashInterface) parseBestBlockForTransactions() {
 	z.logger.Debug("parseBestBlockForTransactions", zap.Uint64("slot", slot))
 
 	/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
-	hash, err := z.primaryConnection.GetBestBlockHash()
-	
+	hash, err := z.PrimaryConnection.GetBestBlockHash()
+
 	if err != nil {
 		z.logger.Warn(err.Error())
 		return
 	}
 
 	/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
-	block, err := z.primaryConnection.GetBlockVerboseTx(hash) /** models getblock when verbose = 2, so this contains all transations */
+	block, err := z.PrimaryConnection.GetBlockVerboseTx(hash) /** models getblock when verbose = 2, so this contains all transations */
 
 	if err != nil {
 		z.logger.Warn(err.Error())
@@ -332,11 +332,11 @@ func (z *ZcashInterface) EventHandler() {
 	/** This may be slow because we have to check if the block has been seen each time, */
 	/** but we have no `subscribe` function, so this is the best we can do */
 	/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
-	futureBlock := z.primaryConnection.getBestBlockVerboseTxAsync()
+	futureBlock := z.PrimaryConnection.getBestBlockVerboseTxAsync()
 
 	for { /** while true, read from channels */
 		select {
-		case <- z.SubscribeDone: /** Cleanup called <=> time to unsubscribe */
+		case <-z.SubscribeDone: /** Cleanup called <=> time to unsubscribe */
 			/** unsubscribe here i.e. stop getting notifications from node via a channel */
 			return
 		case response <- futureBlock:
@@ -347,7 +347,7 @@ func (z *ZcashInterface) EventHandler() {
 			}
 			z.parseBlockForTransactions(block)
 			/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
-			futureBlock = z.primaryConnection.getBestBlockVerboseTxAsync() /* ask for another block */
+			futureBlock = z.PrimaryConnection.getBestBlockVerboseTxAsync() /* ask for another block */
 		case err := sub.Err():
 			z.logger.Warn(err.Error())
 			return /** maybe don't return on an error? */

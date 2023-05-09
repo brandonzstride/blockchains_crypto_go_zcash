@@ -7,10 +7,10 @@ programs in Go since SWIG doesn't support nested directories.
 ## Usage
 
 ```sh
-dune exec -- src/cp.exe -worklist examples/example1/spec1.json
+dune exec -- src/cp.exe -spec examples/example1/spec1.json
 
 # or, to call the executable directly
-./cp.exe -worklist examples/example1/spec1.json
+./cp.exe -spec examples/example1/spec1.json
 ```
 
 Note that the executable has be built first, or else it can only be run on the

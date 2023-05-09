@@ -11,7 +11,6 @@ import (
 	"diablo-benchmark/blockchains/workloadgenerators"
 	"diablo-benchmark/core/configs"
 	"diablo-benchmark/core/results"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -23,19 +22,10 @@ import (
 	zap "go.uber.org/zap"
 
 	rpc "github.com/arithmetric/zcashrpcclient"
-	zrpc "github.com/arithmetric/zcashrpcclient"
-	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc/ws"
 
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/websocket" /** for websocket.Conn */
 )
-
-/** Here are the Ethereum imports, for example:
-ethtypes "github.com/ethereum/go-ethereum/core/types"
-"github.com/ethereum/go-ethereum/ethclient"
-"go.uber.org/zap"
-*/
 
 /** TODO: update utils.go */
 
@@ -118,9 +108,7 @@ type GetBlockVerboseResult struct {
 */
 
 /** TODO: this needs to be integrated with zrpc somehow */
-type zcashClient struct {
-	wsconn websocket.Conn
-}
+type zcashClient  = rpc.Client
 
 type txinfo map[string][]time.Time /** string is key because btcjson.TxRawResult has Hash field of type string */
 
@@ -138,9 +126,7 @@ type ZcashInterface struct {
 	logger               *zap.Logger
 	Fail                 uint64
 	NumTxDone            uint64
-	Nodes                []string // TODO: replace string with actual type of node
-	Connections          []*zcashClient
-	// ActiveConn           websocket.Conn
+	HashChannel		 	 chan *chainHash.Hash // channel for new blocks
 	GenericInterface
 }
 
@@ -156,6 +142,7 @@ func (z *ZcashInterface) Init(chainConfig *configs.ChainConfig) {
 	z.SubscribeDone = make(chan bool)
 	z.HandlersStarted = false
 	z.NumTxDone = 0
+	z.HashChannel = make(chan *chainHash.Hash)
 }
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
@@ -263,7 +250,8 @@ func (z *ZcashInterface) ParseWorkload(workload workloadgenerators.WorkerThreadW
 		for _, txBytes := range v {
 			var t btcjson.TxRawResult /** this custom for Zcash */
 			/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
-			t, err := z.PrimaryConnection.DecodeRawTransaction(txbytes) /** this custom for Zcash */
+			t, err := z.PrimaryConnection.DecodeRawTransaction(txBytes) /** this custom for Zcash */
+
 			if err != nil {
 				return nil, err
 			}
@@ -277,8 +265,15 @@ func (z *ZcashInterface) ParseWorkload(workload workloadgenerators.WorkerThreadW
 	return parsedWorkload, nil
 }
 
-// parseBlockForTransactions parses the given block for the transactions
-func (z *ZcashInterface) parseBlockForTransactions(block btcjson.GetBlockVerboseTxResult) {
+// parseBlockForTransactions parses the given block hash for the transactions
+func (z *ZcashInterface) parseBlockForTransactions(hash *chainHash.Hash) {
+	block, err := z.PrimaryConnection.GetBlockVerboseTx(hash) /** models getblock when verbose = 2, so this contains all transations */
+
+	if err != nil {
+		z.logger.Warn(err.Error())
+		return
+	}
+
 	if z.IsBlockSeen[block.Hash] {
 		return
 	}
@@ -308,8 +303,6 @@ func (z *ZcashInterface) parseBlockForTransactions(block btcjson.GetBlockVerbose
 
 // parseBlocksForTransactions parses the most recent block for transactions
 func (z *ZcashInterface) parseBestBlockForTransactions() {
-	z.logger.Debug("parseBestBlockForTransactions", zap.Uint64("slot", slot))
-
 	/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
 	hash, err := z.PrimaryConnection.GetBestBlockHash()
 
@@ -318,45 +311,192 @@ func (z *ZcashInterface) parseBestBlockForTransactions() {
 		return
 	}
 
-	/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
-	block, err := z.PrimaryConnection.GetBlockVerboseTx(hash) /** models getblock when verbose = 2, so this contains all transations */
-
-	if err != nil {
-		z.logger.Warn(err.Error())
-		return
-	}
-
-	z.parseBlockForTransactions(block)
+	z.parseBlockForTransactions(hash)
 }
 
 // EventHandler subscribes to the blocks and handles the incoming information about the transactions
 func (z *ZcashInterface) EventHandler() {
 	z.logger.Debug("EventHandler")
 
-	/** This may be slow because we have to check if the block has been seen each time, */
-	/** but we have no `subscribe` function, so this is the best we can do */
-	/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
-	futureBlock := z.PrimaryConnection.getBestBlockVerboseTxAsync()
+	/** We've already subscribed when we connected via the HashChannel channel */
 
 	for { /** while true, read from channels */
 		select {
-		case <-z.SubscribeDone: /** Cleanup called <=> time to unsubscribe */
+		case <- z.SubscribeDone: /** Cleanup called <=> time to unsubscribe */
 			/** unsubscribe here i.e. stop getting notifications from node via a channel */
+			/** TODO: update notification settings from client */
 			return
-		case response <- futureBlock:
-			block, err := response.Receive()
-			if err != nil {
-				z.logger.Warn(err.Error())
-				return
-			}
-			z.parseBlockForTransactions(block)
-			/** NOTE: z.PrimaryConnection is a struct and not actually a Zcash client! We need to put a client field into it */
-			futureBlock = z.PrimaryConnection.getBestBlockVerboseTxAsync() /* ask for another block */
-		case err := sub.Err():
-			z.logger.Warn(err.Error())
-			return /** maybe don't return on an error? */
+		case hash := <- z.HashChannel:
+			go z.parseBlockForTransactions(hash)
 		}
 	}
+}
+
+type ConnConfig struct {
+	// Host is the IP address and port of the RPC server you want to connect
+	// to.
+	Host string
+
+	// Endpoint is the websocket endpoint on the RPC server.  This is
+	// typically "ws".
+	Endpoint string
+
+	// User is the username to use to authenticate to the RPC server.
+	User string
+
+	// Pass is the passphrase to use to authenticate to the RPC server.
+	Pass string
+
+	// DisableTLS specifies whether transport layer security should be
+	// disabled.  It is recommended to always use TLS if the RPC server
+	// supports it as otherwise your username and password is sent across
+	// the wire in cleartext.
+	DisableTLS bool
+
+	// Certificates are the bytes for a PEM-encoded certificate chain used
+	// for the TLS connection.  It has no effect if the DisableTLS parameter
+	// is true.
+	Certificates []byte
+
+	// Proxy specifies to connect through a SOCKS 5 proxy server.  It may
+	// be an empty string if a proxy is not required.
+	Proxy string
+
+	// ProxyUser is an optional username to use for the proxy server if it
+	// requires authentication.  It has no effect if the Proxy parameter
+	// is not set.
+	ProxyUser string
+
+	// ProxyPass is an optional password to use for the proxy server if it
+	// requires authentication.  It has no effect if the Proxy parameter
+	// is not set.
+	ProxyPass string
+
+	// DisableAutoReconnect specifies the client should not automatically
+	// try to reconnect to the server when it has been disconnected.
+	DisableAutoReconnect bool
+
+	// DisableConnectOnNew specifies that a websocket client connection
+	// should not be tried when creating the client with New.  Instead, the
+	// client is created and returned unconnected, and Connect must be
+	// called manually.
+	DisableConnectOnNew bool
+
+	// HTTPPostMode instructs the client to run using multiple independent
+	// connections issuing HTTP POST requests instead of using the default
+	// of websockets.  Websockets are generally preferred as some of the
+	// features of the client such notifications only work with websockets,
+	// however, not all servers support the websocket extensions, so this
+	// flag can be set to true to use basic HTTP POST requests instead.
+	HTTPPostMode bool
+
+	// EnableBCInfoHacks is an option provided to enable compatiblity hacks
+	// when connecting to blockchain.info RPC server
+	EnableBCInfoHacks bool
+}
+
+// NotificationHandlers defines callback function pointers to invoke with
+// notifications.  Since all of the functions are nil by default, all
+// notifications are effectively ignored until their handlers are set to a
+// concrete callback.
+//
+// NOTE: Unless otherwise documented, these handlers must NOT directly call any
+// blocking calls on the client instance since the input reader goroutine blocks
+// until the callback has completed.  Doing so will result in a deadlock
+// situation.
+type NotificationHandlers struct {
+	// OnClientConnected is invoked when the client connects or reconnects
+	// to the RPC server.  This callback is run async with the rest of the
+	// notification handlers, and is safe for blocking client requests.
+	OnClientConnected func()
+
+	// OnBlockConnected is invoked when a block is connected to the longest
+	// (best) chain.  It will only be invoked if a preceding call to
+	// NotifyBlocks has been made to register for the notification and the
+	// function is non-nil.
+	OnBlockConnected func(hash *chainhash.Hash, height int32, t time.Time)
+
+	// OnBlockDisconnected is invoked when a block is disconnected from the
+	// longest (best) chain.  It will only be invoked if a preceding call to
+	// NotifyBlocks has been made to register for the notification and the
+	// function is non-nil.
+	OnBlockDisconnected func(hash *chainhash.Hash, height int32, t time.Time)
+
+	// OnRecvTx is invoked when a transaction that receives funds to a
+	// registered address is received into the memory pool and also
+	// connected to the longest (best) chain.  It will only be invoked if a
+	// preceding call to NotifyReceived, Rescan, or RescanEndHeight has been
+	// made to register for the notification and the function is non-nil.
+	OnRecvTx func(transaction *btcutil.Tx, details *btcjson.BlockDetails)
+
+	// OnRedeemingTx is invoked when a transaction that spends a registered
+	// outpoint is received into the memory pool and also connected to the
+	// longest (best) chain.  It will only be invoked if a preceding call to
+	// NotifySpent, Rescan, or RescanEndHeight has been made to register for
+	// the notification and the function is non-nil.
+	//
+	// NOTE: The NotifyReceived will automatically register notifications
+	// for the outpoints that are now "owned" as a result of receiving
+	// funds to the registered addresses.  This means it is possible for
+	// this to invoked indirectly as the result of a NotifyReceived call.
+	OnRedeemingTx func(transaction *btcutil.Tx, details *btcjson.BlockDetails)
+
+	// OnRescanFinished is invoked after a rescan finishes due to a previous
+	// call to Rescan or RescanEndHeight.  Finished rescans should be
+	// signaled on this notification, rather than relying on the return
+	// result of a rescan request, due to how btcd may send various rescan
+	// notifications after the rescan request has already returned.
+	OnRescanFinished func(hash *chainhash.Hash, height int32, blkTime time.Time)
+
+	// OnRescanProgress is invoked periodically when a rescan is underway.
+	// It will only be invoked if a preceding call to Rescan or
+	// RescanEndHeight has been made and the function is non-nil.
+	OnRescanProgress func(hash *chainhash.Hash, height int32, blkTime time.Time)
+
+	// OnTxAccepted is invoked when a transaction is accepted into the
+	// memory pool.  It will only be invoked if a preceding call to
+	// NotifyNewTransactions with the verbose flag set to false has been
+	// made to register for the notification and the function is non-nil.
+	OnTxAccepted func(hash *chainhash.Hash, amount btcutil.Amount)
+
+	// OnTxAccepted is invoked when a transaction is accepted into the
+	// memory pool.  It will only be invoked if a preceding call to
+	// NotifyNewTransactions with the verbose flag set to true has been
+	// made to register for the notification and the function is non-nil.
+	OnTxAcceptedVerbose func(txDetails *btcjson.TxRawResult)
+
+	// OnBtcdConnected is invoked when a wallet connects or disconnects from
+	// btcd.
+	//
+	// This will only be available when client is connected to a wallet
+	// server such as btcwallet.
+	OnBtcdConnected func(connected bool)
+
+	// OnAccountBalance is invoked with account balance updates.
+	//
+	// This will only be available when speaking to a wallet server
+	// such as btcwallet.
+	OnAccountBalance func(account string, balance btcutil.Amount, confirmed bool)
+
+	// OnWalletLockState is invoked when a wallet is locked or unlocked.
+	//
+	// This will only be available when client is connected to a wallet
+	// server such as btcwallet.
+	OnWalletLockState func(locked bool)
+
+	// OnUnknownNotification is invoked when an unrecognized notification
+	// is received.  This typically means the notification handling code
+	// for this package needs to be updated for a new notification type or
+	// the caller is using a custom notification this package does not know
+	// about.
+	OnUnknownNotification func(method string, params []json.RawMessage)
+}
+
+var placeholder string = ""
+
+func (z *ZcashInterface) OnBlockConnected func(hash *chainhash.Hash, height int32, t time.Time) {
+	/** TODO: do we need to lock? */
+	z.HashChannel <- hash
 }
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
@@ -368,22 +508,18 @@ func (z *ZcashInterface) ConnectOne(id int) error {
 		return errors.New("invalid client ID")
 	}
 
-	// Connect to the node
-	conn, err := zrpc.Dial(connectionConfig) /** TODO: fill this! */
+	/** TODO: this is probably broken. See more about ConnConfig */
+	connectionConfig := rpc.ConnConfig{Host:z.Nodes[id], Endpoint:"ws", User:placeholder, Pass:placeholder,
+									DisableTLS:true, Proxy:""}
 
-	// c, err := ethclient.Dial(fmt.Sprintf("ws://%s", e.Nodes[id]))
+	client, err := rpc.New(connectionConfig, rpc.NotificationHandlers{OnBlockConnected:z.OnBlockConnected})
 
-	// // If there's an error, raise it.
-	// if err != nil {
-	// 	return err
-	// }
+	z.PrimaryNode = client
 
-	// e.PrimaryNode = c
-
-	// if !e.HandlersStarted {
-	// 	go e.EventHandler()
-	// 	e.HandlersStarted = true
-	// }
+	if !z.HandlersStarted {
+		go z.EventHandler()
+		z.HandlersStarted = true
+	}
 
 	return nil
 }
@@ -433,26 +569,26 @@ func (z *ZcashInterface) DeploySmartContract(tx interface{}) (interface{}, error
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
 func (z *ZcashInterface) SendRawTransaction(tx interface{}) error {
-	go func() {
-		transaction := tx.(*solana.Transaction)
+	// go func() {
+	// 	transaction := tx.(*solana.Transaction)
 
-		sig, err := z.ActiveConn().rpcClient.SendTransactionWithOpts(context.Background(), transaction, false, rpc.CommitmentFinalized)
-		if err != nil {
-			z.logger.Debug("Err",
-				zap.Error(err),
-			)
-			atomic.AddUint64(&z.Fail, 1)
-			atomic.AddUint64(&z.NumTxDone, 1)
-		}
+	// 	sig, err := z.ActiveConn().rpcClient.SendTransactionWithOpts(context.Background(), transaction, false, rpc.CommitmentFinalized)
+	// 	if err != nil {
+	// 		z.logger.Debug("Err",
+	// 			zap.Error(err),
+	// 		)
+	// 		atomic.AddUint64(&z.Fail, 1)
+	// 		atomic.AddUint64(&z.NumTxDone, 1)
+	// 	}
 
-		z.bigLock.Lock()
-		z.TransactionInfo[sig] = []time.Time{time.Now()}
-		z.bigLock.Unlock()
+	// 	z.bigLock.Lock()
+	// 	z.TransactionInfo[sig] = []time.Time{time.Now()}
+	// 	z.bigLock.Unlock()
 
-		atomic.AddUint64(&z.NumTxSent, 1)
-	}()
+	// 	atomic.AddUint64(&z.NumTxSent, 1)
+	// }()
 
-	return nil
+	// return nil
 }
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */

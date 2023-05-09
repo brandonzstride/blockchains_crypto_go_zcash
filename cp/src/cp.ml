@@ -7,22 +7,6 @@ and directory = { dir : string; files : file_or_dir list }
 and spec = { source : string; target : string; worklist : directory }
 [@@deriving yojson]
 
-<<<<<<< HEAD
-(* Mold raw Yojson input into format acceptable to be converted to our OCaml types *)
-let rec mold ?(key = "") (yojson : Yojson.Safe.t) : Yojson.Safe.t =
-  let open String in
-  match yojson with
-  | `List lst -> `List (List.map lst ~f:(fun x -> mold ~key x))
-  | `String _ as x when key = "files" -> `List (`String "File" :: [ x ])
-  | `Assoc lst when key = "files" ->
-      `List
-        (`String "Dir"
-        :: [ `Assoc (List.map lst ~f:(fun (k, v) -> (k, mold ~key:k v))) ])
-  | `Assoc lst -> `Assoc (List.map lst ~f:(fun (k, v) -> (k, mold ~key:k v)))
-  | _ -> yojson
-
-(* Override the auto-generated Yojson to worklist function *)
-=======
 (* Mold raw Yojson input into format acceptable to be converted to our OCaml types
    k: last seen key of a record entry
    yojson: input Yojson object *)
@@ -39,7 +23,6 @@ let rec mold ?(k = "") (yojson : Yojson.Safe.t) : Yojson.Safe.t =
   | _ -> yojson
 
 (* Override the auto-generated Yojson to spec function *)
->>>>>>> 2a357afd4b267d7934c2c9f054c945b5b826335a
 let spec_of_yojson x = spec_of_yojson (mold x)
 
 (* Process the JSON specification and perform the file copying operation *)
@@ -63,11 +46,7 @@ let () =
     (fun _ -> ())
     "./cp.exe -spec PATH_TO_JSON_FILE";
 
-<<<<<<< HEAD
-  let json_content = Core.In_channel.read_all !worklist_file in
-=======
   let json_content = Core.In_channel.read_all !spec_file in
->>>>>>> 2a357afd4b267d7934c2c9f054c945b5b826335a
   let spec_obj = spec_of_yojson @@ Yojson.Safe.from_string json_content in
 
   let source = spec_obj.source in

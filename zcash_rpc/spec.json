@@ -1,0 +1,11 @@
+{
+  "source": "../../zcash/src/rpc",
+  "target": "src",
+  "worklist": {
+    "dir": "/",
+    "files": [
+      "blockchain.cpp",
+      "rawtransaction.cpp"
+    ]
+  }
+}

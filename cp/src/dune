@@ -4,6 +4,8 @@
   (byte exe))
  (modules cp)
  (libraries yojson core core_unix fileutils)
+ ; (libraries yojson core fileutils)
+
  (preprocess
   (pps ppx_yojson_conv ppx_deriving.show))
  (promote

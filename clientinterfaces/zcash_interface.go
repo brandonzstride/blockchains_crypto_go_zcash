@@ -20,13 +20,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	/** need to update imports */
-	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/gagliardetto/solana-go/rpc/ws"
-	"go.uber.org/zap"
+	zap "go.uber.org/zap"
 
-	zrpc "https://github.com/arithmetric/zcashrpcclient/"
+	rpc "github.com/arithmetric/zcashrpcclient"
+	zrpc "github.com/arithmetric/zcashrpcclient"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc/ws"
 
 	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/websocket" /** for websocket.Conn */
@@ -137,6 +136,11 @@ type ZcashInterface struct {
 	ThroughputTicker     *time.Ticker // Ticker for throughput (1s)
 	Throughputs          []float64    // Throughput over time with 1 second intervals
 	logger               *zap.Logger
+	Fail                 uint64
+	NumTxDone            uint64
+	Nodes                []string // TODO: replace string with actual type of node
+	Connections          []*zcashClient
+	// ActiveConn           websocket.Conn
 	GenericInterface
 }
 
@@ -233,7 +237,7 @@ func (z *ZcashInterface) Cleanup() results.Results {
 
 /** Ticker starts, and this fills z.Throughputs with the number of transactions that succeeded between each tick */
 func (z *ZcashInterface) throughputSeconds() {
-	s.ThroughputTicker = time.NewTicker(time.Duration(z.Window) * time.Second)
+	z.ThroughputTicker = time.NewTicker(time.Duration(z.Window) * time.Second)
 	seconds := float64(0)
 
 	for range z.ThroughputTicker.C {
@@ -342,7 +346,7 @@ func (z *ZcashInterface) EventHandler() {
 		case response <- futureBlock:
 			block, err := response.Receive()
 			if err != nil {
-				Z.logger.Warn(err.Error())
+				z.logger.Warn(err.Error())
 				return
 			}
 			z.parseBlockForTransactions(block)
@@ -381,19 +385,19 @@ func (z *ZcashInterface) ConnectOne(id int) error {
 	// 	e.HandlersStarted = true
 	// }
 
-	// return nil
+	return nil
 }
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
-func (s *SolanaInterface) ConnectAll(primaryID int) error {
-	s.logger.Debug("ConnectAll")
+func (z *ZcashInterface) ConnectAll(primaryID int) error {
+	z.logger.Debug("ConnectAll")
 	// If our ID is greater than the nodes we know, there's a problem!
-	if primaryID >= len(s.Nodes) {
+	if primaryID >= len(z.Nodes) {
 		return errors.New("invalid client primary ID")
 	}
 
 	// Connect all the others
-	for _, node := range s.Nodes {
+	for _, node := range z.Nodes {
 		conn := rpc.New(fmt.Sprintf("http://%s", node))
 
 		ip, portStr, err := net.SplitHostPort(node)
@@ -410,78 +414,78 @@ func (s *SolanaInterface) ConnectAll(primaryID int) error {
 			return err
 		}
 
-		s.Connections = append(s.Connections, &solanaClient{conn, sock})
+		z.Connections = append(z.Connections, &zcashClient{conn, sock})
 	}
 
-	if !s.HandlersStarted {
-		go s.EventHandler()
-		s.HandlersStarted = true
+	if !z.HandlersStarted {
+		go z.EventHandler()
+		z.HandlersStarted = true
 	}
 
 	return nil
 }
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
-func (s *SolanaInterface) DeploySmartContract(tx interface{}) (interface{}, error) {
-	s.logger.Debug("DeploySmartContract")
+func (z *ZcashInterface) DeploySmartContract(tx interface{}) (interface{}, error) {
+	z.logger.Debug("DeploySmartContract")
 	return nil, errors.New("not implemented")
 }
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
-func (s *SolanaInterface) SendRawTransaction(tx interface{}) error {
+func (z *ZcashInterface) SendRawTransaction(tx interface{}) error {
 	go func() {
 		transaction := tx.(*solana.Transaction)
 
-		sig, err := s.ActiveConn().rpcClient.SendTransactionWithOpts(context.Background(), transaction, false, rpc.CommitmentFinalized)
+		sig, err := z.ActiveConn().rpcClient.SendTransactionWithOpts(context.Background(), transaction, false, rpc.CommitmentFinalized)
 		if err != nil {
-			s.logger.Debug("Err",
+			z.logger.Debug("Err",
 				zap.Error(err),
 			)
-			atomic.AddUint64(&s.Fail, 1)
-			atomic.AddUint64(&s.NumTxDone, 1)
+			atomic.AddUint64(&z.Fail, 1)
+			atomic.AddUint64(&z.NumTxDone, 1)
 		}
 
-		s.bigLock.Lock()
-		s.TransactionInfo[sig] = []time.Time{time.Now()}
-		s.bigLock.Unlock()
+		z.bigLock.Lock()
+		z.TransactionInfo[sig] = []time.Time{time.Now()}
+		z.bigLock.Unlock()
 
-		atomic.AddUint64(&s.NumTxSent, 1)
+		atomic.AddUint64(&z.NumTxSent, 1)
 	}()
 
 	return nil
 }
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
-func (s *SolanaInterface) SecureRead(callFunc string, callParams []byte) (interface{}, error) {
-	s.logger.Debug("SecureRead")
+func (z *ZcashInterface) SecureRead(callFunc string, callParams []byte) (interface{}, error) {
+	z.logger.Debug("SecureRead")
 	return nil, errors.New("not implemented")
 }
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
-func (s *SolanaInterface) GetBlockByNumber(index uint64) (GenericBlock, error) {
-	s.logger.Debug("GetBlockByNumber")
+func (z *ZcashInterface) GetBlockByNumber(index uint64) (GenericBlock, error) {
+	z.logger.Debug("GetBlockByNumber")
 	return GenericBlock{}, errors.New("not implemented")
 }
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
-func (s *SolanaInterface) GetBlockHeight() (uint64, error) {
-	s.logger.Debug("GetBlockHeight")
+func (z *ZcashInterface) GetBlockHeight() (uint64, error) {
+	z.logger.Debug("GetBlockHeight")
 	return 0, errors.New("not implemented")
 }
 
 /** If we can get block by number, then we just go through the block numbers and parse */
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
-func (s *SolanaInterface) ParseBlocksForTransactions(startNumber uint64, endNumber uint64) error {
-	s.logger.Debug("ParseBlocksForTransactions")
+func (z *ZcashInterface) ParseBlocksForTransactions(startNumber uint64, endNumber uint64) error {
+	z.logger.Debug("ParseBlocksForTransactions")
 	return errors.New("not implemented")
 }
 
 /** REQUIRED FOR BLOCKCHAIN_INTERFACE */
-func (s *SolanaInterface) Close() {
-	s.logger.Debug("Close")
+func (z *ZcashInterface) Close() {
+	z.logger.Debug("Close")
 	// Close all connections
-	for _, client := range s.Connections {
-		client.wsClient.Close()
+	for _, client := range z.Connections {
+		client.wsconn.Close()
 	}
 }
 

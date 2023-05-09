@@ -1,4 +1,4 @@
-# Automatically flatten files nested directories
+# Automatically flatten files in nested directories
 
 This is a tool to extract specified files from nested directories into a single
 directory, mainly to make way for easy application of SWIG on wrapping C++
@@ -7,11 +7,11 @@ programs in Go since SWIG doesn't support nested directories.
 ## Usage
 
 ```sh
-dune exec -- src/cpcpp.exe -worklist examples/example1/spec1.json
+dune exec -- src/cp.exe -worklist examples/example1/spec1.json
 # where spec1.json is a worklist file
 
 # or, to call the executable directly,
-./cpcpp.exe -worklist examples/example1/spec1.json
+./cp.exe -worklist examples/example1/spec1.json
 ```
 
 Note that the executable has be built first, or else it can only be run on the

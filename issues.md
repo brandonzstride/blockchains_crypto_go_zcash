@@ -22,6 +22,13 @@ C/C++ code in the same directory" as the SWIG specification file.
 
 ## Creating a tool to automatically flatten files in nested directories
 
+As a result of SWIG requiring all C++ source files to be in the same directory,
+we decided to write a tool to automate copying files from a big project like
+Zcash.
+
+We hope this effort, alongside exploring this barely mentioned drawback of SWIG,
+will be of use to others.
+
 Please refer to the [cp/README.md](cp/README.md) folder for the details and
 difficulties we faced.
 

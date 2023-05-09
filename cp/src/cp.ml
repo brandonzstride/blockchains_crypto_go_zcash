@@ -3,14 +3,14 @@ open Core
 type file_or_dir = File of string | Dir of dir
 and dir = { dir : string; files : file_or_dir list }
 
-and worklist = { source : string; target : string; worklist : dir }
+and spec = { source : string; target : string; worklist : dir }
 [@@deriving yojson]
 
 let rec mold ?(k = "") (yojson : Yojson.Safe.t) : Yojson.Safe.t =
   let open String in
   match yojson with
   | `List l -> `List (List.map l ~f:(fun x -> mold ~k x))
-  | `String _ as x when k = "files" -> `List (`String "File" :: [ x ])
+  | `String _ when k = "files" -> `List (`String "File" :: [ yojson ])
   | `Assoc l when k = "files" ->
       `List
         (`String "Dir"
@@ -18,7 +18,7 @@ let rec mold ?(k = "") (yojson : Yojson.Safe.t) : Yojson.Safe.t =
   | `Assoc l -> `Assoc (List.map l ~f:(fun (k, v) -> (k, mold ~k v)))
   | _ -> yojson
 
-let worklist_of_yojson x = worklist_of_yojson (mold x)
+let spec_of_yojson x = spec_of_yojson (mold x)
 
 let rec parse_json dir parent_dir target =
   let cur_dir = Filename.concat parent_dir dir.dir in
@@ -29,11 +29,11 @@ let rec parse_json dir parent_dir target =
     | Dir worklist -> parse_json worklist cur_dir target)
 
 let () =
-  let worklist = ref "" in
+  let spec = ref "" in
   Arg.parse
     [
       ( "-worklist",
-        Arg.Set_string worklist,
+        Arg.Set_string spec,
         "JSON specifying which files to copy over." );
     ]
     (fun _ -> ())
@@ -41,8 +41,7 @@ let () =
   (* print_endline @@ Safe.show @@ mold @@ Safe.from_string
      @@ Core.In_channel.read_all !worklist; *)
   let obj =
-    worklist_of_yojson @@ Yojson.Safe.from_string
-    @@ Core.In_channel.read_all !worklist
+    spec_of_yojson @@ Yojson.Safe.from_string @@ Core.In_channel.read_all !spec
   in
   let source = obj.source in
   let target = obj.target in

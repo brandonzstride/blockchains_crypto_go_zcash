@@ -1,4 +1,4 @@
-%module cpp_hello
+%module cppproj
 %{
     #include "a/a.hpp"
     #include "b/b.hpp"

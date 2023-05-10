@@ -1,0 +1,6 @@
+%module cppproj
+%{
+    #include "hello.h"
+%}
+
+%include "hello.h"

@@ -2,7 +2,7 @@ Command run: `go run main.go`
 
 Error thrown:
 
-```
+```sh
 /opt/homebrew/Cellar/go/1.20.3/libexec/pkg/tool/darwin_arm64/link: running c++ failed: exit status 1
 Undefined symbols for architecture arm64:
   "print_a()", referenced from:

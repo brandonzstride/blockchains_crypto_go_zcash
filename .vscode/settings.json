@@ -1,5 +1,6 @@
 {
     "ocaml.sandbox": {
         "kind": "global"
-    }
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }

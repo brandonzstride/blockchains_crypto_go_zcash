@@ -1,9 +1,5 @@
 /** diablo-benchmark-2\blockchains\clientinterfaces\zcash_interface.go */
 
-/** Presently, this code is mostly copied from ./solana_interface.go, but
-this file has comments for where the changes need to be made.
-Comments are not fully finished. */
-
 package clientinterfaces
 
 import (
@@ -40,66 +36,21 @@ type ChainConfig struct {
 	Keys             []ChainKey    `yaml:keys,flow`            // Key information
 	Extra            []interface{} `yaml:"extra,flow,omitempty"`
 }
-
-And this is a GenericBlock:
-
-// GenericBlock defines a generic block structure for the blockchains, this may or may not be fully filled.
-// This should be extended to accompany for other blockchains but MUST retain
-// base functionality for other chains.
-type GenericBlock struct {
-	Hash              string   // Unique identifier for the block
-	Index             uint64   // Height of the block as an index
-	Timestamp         uint64   // Unix timestamp of the block
-	TransactionNumber int      // Number of transactions included in the block
-	TransactionHashes []string // The hash of each transaction included in the block
-}
 */
 
 /**
 btcjson/chainsvrresults.go
 
-// TxRawResult models the data from the getrawtransaction command.
 type TxRawResult struct {
-	Hex           string `json:"hex"`
-	Txid          string `json:"txid"`
+	..
 	Hash          string `json:"hash,omitempty"`
-	Size          int32  `json:"size,omitempty"`
-	Vsize         int32  `json:"vsize,omitempty"`
-	Weight        int32  `json:"weight,omitempty"`
-	Version       uint32 `json:"version"`
-	LockTime      uint32 `json:"locktime"`
-	Vin           []Vin  `json:"vin"`
-	Vout          []Vout `json:"vout"`
-	BlockHash     string `json:"blockhash,omitempty"`
-	Confirmations uint64 `json:"confirmations,omitempty"`
-	Time          int64  `json:"time,omitempty"`
-	Blocktime     int64  `json:"blocktime,omitempty"`
+	..
 }
 
-// GetBlockVerboseResult models the data from the getblock command when the
-// verbose flag is set to 1.  When the verbose flag is set to 0, getblock returns a
-// hex-encoded string. When the verbose flag is set to 1, getblock returns an object
-// whose tx field is an array of transaction hashes. When the verbose flag is set to 2,
-// getblock returns an object whose tx field is an array of raw transactions.
-// Use GetBlockVerboseTxResult to unmarshal data received from passing verbose=2 to getblock.
 type GetBlockVerboseResult struct {
-	Hash          string        `json:"hash"`
-	Confirmations int64         `json:"confirmations"`
-	StrippedSize  int32         `json:"strippedsize"`
-	Size          int32         `json:"size"`
-	Weight        int32         `json:"weight"`
-	Height        int64         `json:"height"`
-	Version       int32         `json:"version"`
-	VersionHex    string        `json:"versionHex"`
-	MerkleRoot    string        `json:"merkleroot"`
-	Tx            []string      `json:"tx,omitempty"`
-	RawTx         []TxRawResult `json:"rawtx,omitempty"` // Note: this field is always empty when verbose != 2.
-	Time          int64         `json:"time"`
-	Nonce         uint32        `json:"nonce"`
-	Bits          string        `json:"bits"`
-	Difficulty    float64       `json:"difficulty"`
-	PreviousHash  string        `json:"previousblockhash"`
-	NextHash      string        `json:"nextblockhash,omitempty"`
+	..
+	RawTx         []TxRawResult `json:"rawtx,omitempty"`
+	..
 }
 
 */
@@ -133,7 +84,7 @@ func NewZcashInterface() *ZcashInterface {
 func (z *ZcashInterface) Init(chainConfig *configs.ChainConfig) {
 	z.logger.Debug("Init Zcash interface")
 	z.Nodes = chainConfig.Nodes
-	z.TransactionInfo = make(txinfo, 0) /** txinfo is alias right now, so maybe this won't work? */
+	z.TransactionInfo = make(txinfo, 0)
 	z.SubscribeDone = make(chan bool)
 	z.HandlersStarted = false
 	z.NumTxDone = 0
@@ -172,7 +123,6 @@ func (z *ZcashInterface) Cleanup() results.Results {
 			success++
 		} else {
 			/** The transaction was never handled again; it failed! */
-			/** See Solana or Ethereum for how to handle this; currently is like Ethereum */
 			fails++
 		}
 	}
@@ -283,7 +233,7 @@ func (z *ZcashInterface) parseBlockForTransactions(hash *chainhash.Hash) {
 
 	z.bigLock.Unlock()
 
-	atomic.AddUint64(&z.NumTxDone, tAdd) /** why not add before the unlock */
+	atomic.AddUint64(&z.NumTxDone, tAdd)
 	z.logger.Debug("Stats", zap.Uint64("sent", atomic.LoadUint64(&z.NumTxSent)), zap.Uint64("done", atomic.LoadUint64(&z.NumTxDone)))
 }
 
@@ -309,7 +259,6 @@ func (z *ZcashInterface) EventHandler() {
 		select {
 		case <- z.SubscribeDone: /** Cleanup called <=> time to unsubscribe */
 			/** unsubscribe here i.e. stop getting notifications from node via a channel */
-			/** TODO: update notification settings from client */
 			return
 		case hash := <- z.HashChannel:
 			go z.parseBlockForTransactions(hash)
@@ -320,7 +269,6 @@ func (z *ZcashInterface) EventHandler() {
 var placeholder string = ""
 
 func (z *ZcashInterface) OnBlockConnected (hash *chainhash.Hash, height int32, t time.Time) {
-	/** TODO: do we need to lock? */
 	z.HashChannel <- hash
 }
 
@@ -333,7 +281,8 @@ func (z *ZcashInterface) ConnectOne(id int) error {
 		return errors.New("invalid client ID")
 	}
 
-	/** TODO: this is probably broken. See more about ConnConfig */
+	/** See more about ConnConfig */
+	/** https://github.com/arithmetric/zcashrpcclient/blob/7fe0a7b794884635a30971f682db368f8ba3bd8e/infrastructure.go#L1051 */
 	connectionConfig := rpc.ConnConfig{Host:z.Nodes[id], Endpoint:"ws", User:placeholder, Pass:placeholder,
 									DisableTLS:true, Proxy:""}
 
@@ -401,7 +350,6 @@ func (z *ZcashInterface) SendRawTransaction(tx interface{}) error {
 		atomic.AddUint64(&z.NumTxDone, 1)
 	}
 
-	/** TODO: Is hash.String() the same as TxRawResult.Hash ? See for loop in z.ParseBlockForTransaction */
 	z.bigLock.Lock()
 	z.TransactionInfo[hash.String()] = []time.Time{time.Now()}
 	z.bigLock.Unlock()
@@ -453,6 +401,7 @@ func (z *ZcashInterface) ParseBlocksForTransactions(startNumber uint64, endNumbe
 func (z *ZcashInterface) Close() {
 	z.logger.Debug("Close")
 	// Close all connections
+	z.PrimaryConnection.Disconnect()
 	for _, client := range z.SecondaryConnections {
 		client.Disconnect()
 	}

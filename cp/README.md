@@ -24,6 +24,7 @@ system where it was last built. To install OCaml and required tooling, see
   "source": "the root of the nested directories",
   "target": "the target directory to dump all the files into",
   "swigcxx": "the .swigcxx file to generate, or not if this field is left empty",
+  "go": "the .go root package file to generate, or not if this field is left empty",
   "worklist": {
     "dir": "a subdirectory",
     "files": [

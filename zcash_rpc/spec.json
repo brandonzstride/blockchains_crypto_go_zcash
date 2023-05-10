@@ -1,7 +1,8 @@
 {
   "source": "../../zcash/src",
   "target": "rpc",
-  "swigcxx": "rpc.swigcxx",
+  "swigcxx": "rpc/rpc.swigcxx",
+  "go": "rpc/rpc.go",
   "worklist": {
     "dir": "/",
     "files": [

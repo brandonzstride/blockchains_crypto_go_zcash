@@ -1,6 +1,8 @@
 {
   "source": "examples/example2/cpp_proj",
   "target": "examples/example2/cpp_proj_copy",
+  "swigcxx": "examples/example2/cpp_proj_copy/cpp_proj_copy.swigxx",
+  "go": "examples/example2/cpp_proj_copy/cpp_proj_copy.go",
   "worklist": {
     "dir": "subdir",
     "files": [

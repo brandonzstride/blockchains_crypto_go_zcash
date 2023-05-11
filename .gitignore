@@ -1,5 +1,6 @@
 *.o
 _build
+.DS_Store
 
 reported/_minted-report
 report/*.aux

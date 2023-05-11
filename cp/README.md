@@ -1,4 +1,4 @@
-# Automatically flatten files in nested directories
+# `cp` - Automatically flatten files in nested directories
 
 This is a tool to extract specified files from nested directories into a single
 directory, mainly to make way for easy application of SWIG on wrapping C++
@@ -10,16 +10,16 @@ code to Go.
 ## Usage
 
 ```sh
-dune exec -- src/cp.exe -spec examples/example1/spec1.json
+dune exec -- src/cp.exe -spec examples/example1/spec.json
 
 # or, to call the executable directly
-./dist/mac_m1/cp.exe -spec examples/example1/spec1.json
+./dist/mac_m1/cp.exe -spec examples/example1/spec.json
 
 # to build and copy the executable to the `zcash_rpc` directory
 make
 ```
 
-We provide pre-built executables for Mac, M1 Mac, and Ubuntu in the
+We provide pre-built executables for Intel Mac, M1 Mac, and Ubuntu in the
 [dist](./dist) folder. However, you may still need to build the project to
 generate an executable runnable on your machine. To install OCaml and required
 tooling, see [Install](##Install).

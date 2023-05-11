@@ -1,1 +1,0 @@
-The current files here are meant to be inside diablo-benchmark-2\blockchains\clientinterfaces

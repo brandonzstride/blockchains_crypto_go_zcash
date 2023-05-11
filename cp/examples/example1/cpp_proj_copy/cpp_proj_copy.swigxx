@@ -1,9 +1,0 @@
-%module cpp_proj_copy
-%{
-#include "d.cpp"
-#include "c.cpp"
-#include "b.cpp"
-%}
-%include "d.cpp"
-%include "c.cpp"
-%include "b.cpp"

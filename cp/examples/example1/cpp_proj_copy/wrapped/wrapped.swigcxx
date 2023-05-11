@@ -1,0 +1,9 @@
+%module wrapped
+%{
+#include "d.cpp"
+#include "c.cpp"
+#include "b.cpp"
+%}
+%include "d.cpp"
+%include "c.cpp"
+%include "b.cpp"

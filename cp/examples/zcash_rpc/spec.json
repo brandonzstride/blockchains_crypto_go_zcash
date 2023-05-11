@@ -1,0 +1,83 @@
+{
+  "source": "../../../../zcash/src",
+  "target": ".",
+  "swig": true,
+  "worklist": {
+    "dir": "/",
+    "files": [
+      "#amount.h",
+      "#chain.h",
+      "#chainparams.h",
+      "#checkpoints.h",
+      {
+        "dir": "consensus",
+        "files": [
+          "#validation.h",
+          "#upgrades.h"
+        ]
+      },
+      "#experimental_features.h",
+      "#key_io.h",
+      "#main.h",
+      "#metrics.h",
+      {
+        "dir": "primitives",
+        "files": [
+          "#transaction.h"
+        ]
+      },
+      {
+        "dir": "util",
+        "files": [
+          "#system.h"
+        ]
+      },
+      "#streams.h",
+      "#sync.h",
+      "#core_io.h",
+      "#init.h",
+      "#deprecation.h",
+      "#key_io.h",
+      "#keystore.h",
+      "#main.h",
+      "#merkleblock.h",
+      "#net.h",
+      {
+        "dir": "policy",
+        "files": [
+          "#policy.h"
+        ]
+      },
+      {
+        "dir": "primitives",
+        "files": [
+          "#transaction.h"
+        ]
+      },
+      {
+        "dir": "script",
+        "files": [
+          "#script.h",
+          "#script_error.h",
+          "#sign.h",
+          "#standard.h"
+        ]
+      },
+      "#uint256.h",
+      {
+        "dir": "rpc",
+        "files": [
+          "blockchain.cpp",
+          "#server.h",
+          "rawtransaction.cpp"
+        ]
+      },
+      {
+        "dir": "univalue/include",
+        "files": [
+          "#univalue.h"
+        ]
+      }
+    ]
+  }
+}

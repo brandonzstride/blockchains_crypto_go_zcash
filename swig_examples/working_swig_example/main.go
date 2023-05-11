@@ -1,9 +1,9 @@
 package main
 
 import (
-	"main_module/cppproj"
+	"main_module/cpp_proj"
 )
 
 func main() {
-	cppproj.Print_hello_world()
+	cpp_proj.Print_hello_world()
 }

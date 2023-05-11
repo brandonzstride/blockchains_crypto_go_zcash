@@ -1,7 +1,8 @@
 # Issues
 
-This file elaborates on all the issues we encountered while working on this
-project (spoiler: there are many!) and what we did to solve/work around them.
+This file elaborates on the issues we encountered while working on this
+project and what we did to solve/work around them. Please refer to our final
+report for a much more comprehensive discussion.
 
 ## Importing the Zcash codebase
 

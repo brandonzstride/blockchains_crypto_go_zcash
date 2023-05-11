@@ -1,4 +1,4 @@
-package cppproj
+package cpp_proj
 
 import "C"
 

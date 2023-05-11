@@ -1,0 +1,1 @@
+Here are two examples of using SWIG *without* the cp tool. When there are nested folders, SWIG fails to wrap the C++ code.

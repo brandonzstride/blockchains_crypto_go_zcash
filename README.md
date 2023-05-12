@@ -1,3 +1,6 @@
+**Check out our comprehensive [guide](./blockchain_benchmarking_in_practice.pdf)
+to using Diablo and integrating foreign-language blockchains!**
+
 # Running Zcash in Diablo
 
 **Authors:** Brandon Stride, Robert Zhang, Elisée Djapa<br>
